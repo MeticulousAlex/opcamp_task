@@ -1,46 +1,96 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
+import { AgGridReact } from 'ag-grid-react';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import IconButton from '@mui/material/IconButton';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddBook from './AddBook';
+
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-material.css';
 
 function App() {
-  const [todo, setTodo] = useState({ description: '', date: '', status: '' });
-  const [todos, setTodos] = useState([]);
+  const [books, setBooks] = useState([]);
 
-  const inputChanged = event => {
-    setTodo({ ...todo, [event.target.name]: event.target.value });
+  const columnDefs = [
+    { field: 'title', sortable: true, filter: true },
+    { field: 'author', sortable: true, filter: true },
+    { field: 'price', sortable: true, filter: true },
+    {
+      headerName: '',
+      field: 'id',
+      width: 90,
+      cellRenderer: params => (
+        <IconButton onClick={() => deleteBook(params.value)} size="small" color="error">
+          <DeleteIcon />
+        </IconButton>
+      )
+    }
+  ];
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  const fetchItems = () => {
+    fetch('https://bookstore-99548-default-rtdb.europe-west1.firebasedatabase.app/books/.json')
+      .then(response => {
+        console.log(response);
+        return response.json();
+      })
+      .then(data => {
+        addKeys(data);
+      })
+      .catch(err => console.error(err));
   };
 
-  const addTodo = () => {
-    setTodos([...todos, todo]);
-    setTodo({ description: '', date: '', status: '' });
+  // Add keys to the Book objects
+  const addKeys = data => {
+    const keys = Object.keys(data);
+    const valueKeys = Object.values(data).map((item, index) => {
+      return Object.defineProperty(item, 'id', { value: keys[index] });
+    });
+    setBooks(valueKeys);
+  };
+
+  const addBook = newBook => {
+    fetch('https://bookstore-99548-default-rtdb.europe-west1.firebasedatabase.app/books/.json', {
+      method: 'POST',
+      body: JSON.stringify(newBook)
+    })
+      .then(response => fetchItems())
+      .catch(err => console.error(err));
+  };
+
+  const deleteBook = id => {
+    fetch(
+      `https://bookstore-99548-default-rtdb.europe-west1.firebasedatabase.app/books/${id}.json`,
+      {
+        method: 'DELETE'
+      }
+    )
+      .then(response => {
+        console.log(response);
+        fetchItems();
+      })
+      .catch(err => console.error(err));
   };
 
   return (
     <>
-      <h3>My Todolist</h3>
-      <input
-        placeholder="Description"
-        name="description"
-        value={todo.description}
-        onChange={inputChanged}
-      />
-      <input placeholder="Date" name="date" value={todo.date} onChange={inputChanged} />
-      <input placeholder="Status" name="status" value={todo.status} onChange={inputChanged} />
-      <button onClick={addTodo}>Add</button>
-      <table>
-        <tbody>
-          {todos.map((todo, index) => (
-            <tr key={index}>
-              <td>{todo.description}</td>
-              <td>{todo.date}</td>
-              <td>{todo.status}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h5">BookList</Typography>
+        </Toolbar>
+      </AppBar>
+      <AddBook addBook={addBook} />
+      <div className="ag-theme-material" style={{ height: 400, width: 700 }}>
+        <AgGridReact rowData={books} columnDefs={columnDefs} />
+      </div>
     </>
   );
 }
 
 export default App;
-
-//https://www.youtube.com/watch?v=dQw4w9WgXcQ
